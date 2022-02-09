@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 )
 
 func main() {
@@ -16,5 +17,13 @@ func main() {
 	sm.Handle("/", hh)
 	sm.Handle("/goodbay", gh)
 
-	http.ListenAndServe(":9090", sm)
+	s := &http.Server{
+		Addr:         ":9090",
+		Handler:      sm,
+		IdleTimeout:  120 * time.Second,
+		ReadTimeout:  1 * time.Second,
+		WriteTimeout: 1 * time.Second,
+	}
+
+	s.ListenAndServe()
 }
