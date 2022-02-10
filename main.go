@@ -1,7 +1,7 @@
 package main
 
 import (
-	"Microservices/handlers"
+	"Microservices/product-api/handlers"
 	"context"
 	"log"
 	"net/http"
@@ -12,12 +12,10 @@ import (
 
 func main() {
 	l := log.New(os.Stdout, "product-api", log.LstdFlags)
-	hh := handlers.NewHello(l)
-	gh := handlers.NewGoodBay(l)
+	ph := handlers.NewProduct(l)
 
 	sm := http.NewServeMux()
-	sm.Handle("/", hh)
-	sm.Handle("/goodbay", gh)
+	sm.Handle("/", ph)
 
 	s := &http.Server{
 		Addr:         ":9090",
