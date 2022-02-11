@@ -3,6 +3,7 @@ package handlers
 import (
 	"Microservices/product-api/data"
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -83,6 +84,14 @@ func (p Products) MidlewareProductValidation(next http.Handler) http.Handler {
 		if err != nil {
 			p.l.Println("[ERROR] deserializing product", err)
 			http.Error(rw, "error reading product", http.StatusBadRequest)
+		}
+
+		//validate the product
+		err = prod.Validate()
+		if err != nil {
+			p.l.Println("[ERROR] Validating product", err)
+			http.Error(rw, fmt.Sprintf("error validating product %s", err), http.StatusBadRequest)
+			return
 		}
 
 		ctx := context.WithValue(r.Context(), KeyProduct{}, prod)
