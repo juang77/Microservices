@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"Microservices/product-api/data"
-	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -11,111 +10,47 @@ import (
 	"github.com/gorilla/mux"
 )
 
-type Products struct {
-	l *log.Logger
-}
-
-func NewProducts(l *log.Logger) *Products {
-	return &Products{l}
-}
-
-func (p *Products) GetProducts(rw http.ResponseWriter, r *http.Request) {
-	lp := data.GetProducts()
-	err := lp.ToJSON(rw)
-	if err != nil {
-		http.Error(rw, "Unable to marchal json", http.StatusInternalServerError)
-	}
-}
-
-func (p *Products) GetProductById(rw http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id, err := strconv.Atoi(vars["id"])
-	if err != nil {
-		http.Error(rw, "Unable to convert ID", http.StatusBadRequest)
-		return
-	}
-
-	lp := data.GetProductById(id)
-	err = lp.ToJSON(rw)
-	if err != nil {
-		http.Error(rw, "Unable to marchal json", http.StatusInternalServerError)
-	}
-}
-
-func (p *Products) AddProduct(rw http.ResponseWriter, r *http.Request) {
-	p.l.Println("Handle Post Products")
-
-	prod := r.Context().Value(KeyProduct{}).(data.Product)
-
-	data.AddProduct(&prod)
-}
-
-func (p *Products) UpdateProduct(rw http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id, err := strconv.Atoi(vars["id"])
-	if err != nil {
-		http.Error(rw, "Unable to convert ID", http.StatusBadRequest)
-		return
-	}
-
-	p.l.Println("Handle Put Products", id)
-
-	prod := r.Context().Value(KeyProduct{}).(data.Product)
-
-	err = data.UpdateProduct(id, &prod)
-	if err == data.ErrProductNotFound {
-		http.Error(rw, "Product not found", http.StatusNotFound)
-	}
-
-	if err != nil {
-		http.Error(rw, "Product not found", http.StatusInternalServerError)
-		return
-	}
-}
-
-func (p *Products) DeleteProduct(rw http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id, err := strconv.Atoi(vars["id"])
-	if err != nil {
-		http.Error(rw, "Unable to convert ID", http.StatusBadRequest)
-		return
-	}
-
-	err = data.DeleteProduct(id)
-
-	if err == data.ErrProductNotFound {
-		http.Error(rw, "Product not found", http.StatusNotFound)
-	}
-
-	if err != nil {
-		http.Error(rw, "Product not found", http.StatusInternalServerError)
-		return
-	}
-}
-
+// KeyProduct is a key used for the Product object in the context
 type KeyProduct struct{}
 
-func (p Products) MidlewareProductValidation(next http.Handler) http.Handler {
+// Products handler for getting and updating products
+type Products struct {
+	l *log.Logger
+	v *data.Validation
+}
 
-	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-		prod := data.Product{}
+// NewProducts returns a new products handler with the given logger
+func NewProducts(l *log.Logger, v *data.Validation) *Products {
+	return &Products{l, v}
+}
 
-		err := prod.FromJSON(r.Body)
-		if err != nil {
-			p.l.Println("[ERROR] deserializing product", err)
-			http.Error(rw, "error reading product", http.StatusBadRequest)
-		}
+// ErrInvalidProductPath is an error message when the product path is not valid
+var ErrInvalidProductPath = fmt.Errorf("Invalid Path, path should be /products/[id]")
 
-		//validate the product
-		err = prod.Validate()
-		if err != nil {
-			p.l.Println("[ERROR] Validating product", err)
-			http.Error(rw, fmt.Sprintf("error validating product %s", err), http.StatusBadRequest)
-			return
-		}
+// GenericError is a generic error message returned by a server
+type GenericError struct {
+	Message string `json:"message"`
+}
 
-		ctx := context.WithValue(r.Context(), KeyProduct{}, prod)
-		r = r.WithContext(ctx)
-		next.ServeHTTP(rw, r)
-	})
+// ValidationError is a collection of validation error messages
+type ValidationError struct {
+	Messages []string `json:"messages"`
+}
+
+// getProductID returns the product ID from the URL
+// Panics if cannot convert the id into an integer
+// this should never happen as the router ensures that
+// this is a valid number
+func getProductID(r *http.Request) int {
+	// parse the product id from the url
+	vars := mux.Vars(r)
+
+	// convert the id into an integer and return
+	id, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		// should never happen
+		panic(err)
+	}
+
+	return id
 }
